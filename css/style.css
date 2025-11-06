@@ -13,10 +13,6 @@ input:focus {
     outline: none;
     background: #e7f0ff; 
 }
-/* Implementar estilos para campos válidos e inválidos */
-/* .valid { border-color: green; background: #e6ffe6; } */
-/* .invalid { border-color: red; background: #ffe6e6; } */
-
 
 button:disabled { 
     background: #ccc; 
@@ -40,4 +36,27 @@ li span {
         
 .actions button { 
     margin-left: 0.5em; 
+    
 }
+
+.mensaje-error{
+    color: red;
+    margin-top: 0;
+}
+
+#client-form{
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.input-mal{
+    border-color: red;
+    background: #ffe6e6;
+}
+
+.input-bien{
+    border-color: green;
+    background: #e6ffe6;
+}
+

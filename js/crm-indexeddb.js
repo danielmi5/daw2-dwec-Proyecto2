@@ -63,26 +63,23 @@ request.onupgradeneeded = function(event) {
 
 
 // --- VALIDACIONES ---
-// TODO: Implementad validaciones usando expresiones regulares y eventos 'onblur'
-// Elimina el código de validación y manejo de clases visuales para que ellos lo desarrollen
 const form = document.getElementById('client-form');
 const addBtn = document.getElementById('add-btn');
 const inputs = form.querySelectorAll('input');
+let inputNombre = form.querySelector("#name"); 
+let inputEmail = form.querySelector("#email");
+let inputTelefono = form.querySelector("#phone");
 
 // --- Validaciones y activación botón ---
-// Dejar el botón siempre deshabilitado. Que alumnos lo activen cuando validen campos
-// addBtn.disabled = true; 
 
 inputs.forEach(input => {
-    // Quitar manejo de eventos 'blur' para validación (alumnos deben hacerlo)
     input.addEventListener('blur', e => { 
-        const value = e.target.value.trim();
-        const isValid = value.length > 0; // Validación simple: campo no vacío
+        inputBien(e.target);
+        activarDesactivarBtn();
      });
 });
 
 // --- AGREGAR CLIENTE ---
-// TODO: Implementar la función que capture los datos y los agregue a IndexedDB
 form.addEventListener('submit', e => {
     e.preventDefault();
     
@@ -91,11 +88,9 @@ form.addEventListener('submit', e => {
         return;
     }
     
-    let nombre = form.querySelector("#name").value; 
-    let email = form.querySelector("#email").value;
-    let telef = form.querySelector("#phone").value;
-
-    console.log("Añadiendo cliente:", nombre, email, telef);
+    let nombre = inputNombre.value.trim();
+    let email = inputEmail.value.trim();
+    let telef = inputTelefono.value.trim(); 
 
     const tx = db.transaction("clients", "readwrite");
     const store = tx.objectStore("clients");
@@ -106,7 +101,7 @@ form.addEventListener('submit', e => {
         fetchClients();
     };
     
-    tx.onerror = () => console.error("Error al añadir cliente");
+    tx.onerror = (error) => console.error("Error al añadir cliente", error);
 });
 
 // --- LISTADO DINÁMICO ---
@@ -161,3 +156,100 @@ window.deleteClient = function(id) {
     fetchClients();
 };
 
+
+
+function comprobarNombre(nombre){
+    const regex = /^[a-zA-Z\s]+$/;
+    return regex.test(nombre);
+}
+
+function comprobarEmail(email){
+    const regex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return regex.test(email);
+}
+
+function comprobarTelefono(telef){
+    const regex = /^[0-9]{9}$/;
+    return regex.test(telef)
+}
+
+function generarErrorInput(input, mensaje){
+    const p = document.createElement("p");
+
+    if (input.classList.contains("input-mal")) {
+        return;
+    }
+
+    if (input.classList.contains("input-bien")) {
+        input.classList.remove("input-bien");
+    }
+
+    p.textContent = mensaje;
+    p.style.margin = "0";
+    p.classList.add("mensaje-error");
+
+    input.classList.add("input-mal");
+    input.insertAdjacentElement('afterend', p);
+}
+
+function generarBienInput(input){
+    input.classList.remove("input-mal");
+    input.classList.add("input-bien");
+    const p = input.parentNode.querySelector("p")
+    if (p != null) p.remove();
+}
+
+function inputBien(input){
+    let bien = true;
+    let valor;
+    switch (input) {
+        case inputNombre:
+            valor = inputNombre.value.trim();
+
+            if(!comprobarNombre(valor)){
+                const msj = "Nombre no válido";
+                generarErrorInput(inputNombre, msj);
+                console.error(msj);
+                bien = false;
+            }
+            break;
+        case inputEmail:
+            valor = inputEmail.value.trim();
+
+            if(!comprobarEmail(valor)){
+                const msj = "Email no válido";
+                generarErrorInput(inputEmail, msj);
+                console.error(msj);
+                bien = false;
+            }
+            break;
+        case inputTelefono:
+            valor = inputTelefono.value.trim();
+
+            if(!comprobarTelefono(valor)){
+                const msj = "El número de télefono no es válido";
+                generarErrorInput(inputTelefono, msj);
+                console.error(msj);
+                bien = false;
+            }
+            break;
+    }
+
+    if(bien) {
+        input.classList.remove("input-mal");
+        generarBienInput(input);
+    }
+    return bien;
+}
+
+
+function activarDesactivarBtn(){
+    let todosBien = true;
+    inputs.forEach(input => {
+        if (!input.classList.contains("input-bien") || input.value.trim() === "") {
+            todosBien = false;
+        }
+    });
+
+    addBtn.disabled = (todosBien) ? false : true;
+}
