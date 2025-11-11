@@ -73,14 +73,19 @@ let inputTelefono = form.querySelector("#phone");
 // --- Validaciones y activación botón ---
 
 inputs.forEach(input => {
-    input.addEventListener('blur', e => { 
-        inputBien(e.target);
-        activarDesactivarBtn();
+    input.addEventListener('blur', async (e) => { 
+        try {
+            await inputBien(e.target);
+        } catch (err) {
+            console.error('Error en validación:', err);
+        } finally {
+            activarDesactivarBtn();
+        }
      });
 });
 
 // --- AGREGAR CLIENTE ---
-form.addEventListener('submit', e => {
+form.addEventListener('submit', (e) => {
     e.preventDefault();
     
     if(!db) {
@@ -92,16 +97,25 @@ form.addEventListener('submit', e => {
     let email = inputEmail.value.trim();
     let telef = inputTelefono.value.trim(); 
 
-    const tx = db.transaction("clients", "readwrite");
-    const store = tx.objectStore("clients");
-    store.add({ name: nombre, email: email, phone: telef});
-    
-    tx.oncomplete = () => {
-        console.log("Cliente añadido correctamente");
-        fetchClients();
-    };
-    
-    tx.onerror = (error) => console.error("Error al añadir cliente", error);
+    try {
+        const tx = db.transaction("clients", "readwrite");
+        const store = tx.objectStore("clients");
+        store.add({ name: nombre, email: email, phone: telef});
+        tx.oncomplete = () => {
+            console.log("Cliente añadido correctamente");
+            fetchClients();
+            form.reset();
+            inputs.forEach(input => {
+                input.classList.remove("input-bien", "input-mal");
+            });
+            activarDesactivarBtn();
+        };
+        tx.onerror = (event) => {
+            console.error("Error al intentar añadir el cliente:", event);
+        };
+    } catch (error) {
+        console.error("Error al intentar añadir el cliente:", error);
+    }
 });
 
 // --- LISTADO DINÁMICO ---
@@ -168,15 +182,47 @@ function comprobarEmail(email){
     return regex.test(email);
 }
 
+function comprobarEmailYaExiste(email){
+
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction("clients", "readonly");
+        const store = tx.objectStore("clients");
+        const request = store.getAll();
+
+        request.onsuccess = () => {
+            resolve(request.result.some(cliente => cliente.email === email)) 
+        }
+
+        request.onerror = () => reject(request.error)
+    })
+}
+
+
 function comprobarTelefono(telef){
     const regex = /^[0-9]{9}$/;
     return regex.test(telef)
 }
 
-function generarErrorInput(input, mensaje){
-    const p = document.createElement("p");
+function comprobarTelefonoYaExiste(telef){
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction("clients", "readonly");
+        const store = tx.objectStore("clients");
+        const request = store.getAll();
 
+        request.onsuccess = () => {
+            resolve(request.result.some(cliente => cliente.phone === telef)) 
+        }
+
+        request.onerror = () => reject(request.error)
+    })
+}
+
+function generarErrorInput(input, mensaje){
     if (input.classList.contains("input-mal")) {
+        const mensajeAnterior = input.parentNode.querySelector(".mensaje-error");
+        if (mensajeAnterior) {
+            mensajeAnterior.textContent = mensaje;
+        }
         return;
     }
 
@@ -184,6 +230,7 @@ function generarErrorInput(input, mensaje){
         input.classList.remove("input-bien");
     }
 
+    const p = document.createElement("p");
     p.textContent = mensaje;
     p.style.margin = "0";
     p.classList.add("mensaje-error");
@@ -199,9 +246,10 @@ function generarBienInput(input){
     if (p != null) p.remove();
 }
 
-function inputBien(input){
+async function inputBien(input){
     let bien = true;
     let valor;
+    
     switch (input) {
         case inputNombre:
             valor = inputNombre.value.trim();
@@ -221,8 +269,20 @@ function inputBien(input){
                 generarErrorInput(inputEmail, msj);
                 console.error(msj);
                 bien = false;
+            } else {
+                try {
+                    const existe = await comprobarEmailYaExiste(valor);
+                    if (existe) {
+                        generarErrorInput(inputEmail, "Ya existe un cliente con ese email");
+                        bien = false;
+                    }
+                } catch (err) {
+                    console.error('Error comprobando email:', err);
+                    generarErrorInput(inputEmail, "No se pudo verificar el email");
+                    bien = false;
+                }
             }
-            break;
+            break;            
         case inputTelefono:
             valor = inputTelefono.value.trim();
 
@@ -231,6 +291,18 @@ function inputBien(input){
                 generarErrorInput(inputTelefono, msj);
                 console.error(msj);
                 bien = false;
+            } else {
+                try {
+                    const existe = await comprobarTelefonoYaExiste(valor);
+                    if (existe) {
+                        generarErrorInput(inputTelefono, "Ya existe un cliente con ese teléfono");
+                        bien = false;
+                    }
+                } catch (err) {
+                    console.error('Error comprobando teléfono:', err);
+                    generarErrorInput(inputTelefono, "No se pudo verificar el teléfono");
+                    bien = false;
+                }
             }
             break;
     }
@@ -238,6 +310,8 @@ function inputBien(input){
     if(bien) {
         input.classList.remove("input-mal");
         generarBienInput(input);
+    } else {
+        input.classList.remove("input-bien");
     }
     return bien;
 }
