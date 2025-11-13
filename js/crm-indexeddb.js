@@ -143,7 +143,7 @@ function fetchClients() {
             
             const editarBtn = li.querySelector(".editar-btn");
             editarBtn.addEventListener("click", () => {
-                window.editClient(cliente.id);
+                window.editClient(cliente);
             });
             
             const eliminarBtn = li.querySelector(".eliminar-btn");
@@ -155,11 +155,9 @@ function fetchClients() {
 }
 
 // --- EDITAR CLIENTE ---
-window.editClient = function(id) {
-    const tx = db.transaction("clients", "readwrite");
-    const store = tx.objectStore("clients");
-    store.put({ id: id, name: "Nombre", email: "example@correo.es", phone: "000000000"}); 
-    fetchClients();
+window.editClient = function(cliente) {
+    mostrarForm(cliente);
+    
 };
 
 // --- ELIMINAR CLIENTE ---
@@ -167,7 +165,15 @@ window.deleteClient = function(id) {
     const tx = db.transaction("clients", "readwrite");
     const store = tx.objectStore("clients");
     store.delete(id);
-    fetchClients();
+    
+    tx.oncomplete = () => {
+        console.log("Cliente eliminado correctamente");
+        fetchClients();
+    };
+    
+    tx.onerror = () => {
+        console.error("Error al eliminar cliente");
+    };
 };
 
 
@@ -326,4 +332,74 @@ function activarDesactivarBtn(){
     });
 
     addBtn.disabled = (todosBien) ? false : true;
+}
+
+// ---FORMULARIO EDITAR CLIENTE---
+function mostrarForm(cliente) {
+    const ventana = document.createElement('div');
+    ventana.className = 'edit-ventana';
+    
+    const contenedorForm = document.createElement('div');
+    contenedorForm.className = 'edit-contenedor';
+
+    const formularioHTML = `
+        <h2>Editar Cliente</h2>
+        <form id="edit-form" autocomplete="off">
+            <div>
+                <label>Nombre completo:</label>
+                <input id="edit-name" name="name" type="text" placeholder="Nombre completo" value="${cliente.name}" required>
+            </div>
+            <div>
+                <label>Email:</label>
+                <input id="edit-email" name="email" type="email" placeholder="ejemplo@dominio.com" value="${cliente.email}" required>
+            </div>
+            <div>
+                <label>Teléfono:</label>
+                <input id="edit-phone" name="phone" type="text" placeholder="123456789" value="${cliente.phone}" required>
+            </div>
+            <div class="edit-buttons">
+                <button id="edit-cancel-btn" type="button">Cancelar</button>
+                <button id="edit-submit-btn" type="submit">Guardar Cambios</button>
+            </div>
+        </form>
+    `;
+    
+    contenedorForm.innerHTML = formularioHTML;
+    
+    
+    ventana.appendChild(contenedorForm);
+    document.body.appendChild(ventana);
+
+    const editForm = contenedorForm.querySelector('#edit-form');
+    const btnCancelar = contenedorForm.querySelector('#edit-cancel-btn');
+    
+    btnCancelar.addEventListener('click', () => {
+        ventana.remove();
+    });
+
+    editForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        actualizarCliente(cliente, ventana);
+    });
+}
+
+
+function actualizarCliente(cliente, ventana) {
+    const nombre = document.querySelector('#edit-name').value.trim();
+    const email = document.querySelector('#edit-email').value.trim();
+    const phone = document.querySelector('#edit-phone').value.trim();
+    
+    const tx = db.transaction("clients", "readwrite");
+    const store = tx.objectStore("clients");
+    store.put({ id: cliente.id, name: nombre, email: email, phone: phone });
+    
+    tx.oncomplete = () => {
+        console.log("Cliente actualizado correctamente");
+        fetchClients();
+        ventana.remove();
+    };
+    
+    tx.onerror = () => {
+        console.error("Error al actualizar el cliente");
+    };
 }
